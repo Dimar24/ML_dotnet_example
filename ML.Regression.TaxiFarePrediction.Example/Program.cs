@@ -5,40 +5,62 @@ using System.IO;
 
 namespace ML.Regression.TaxiFarePrediction.Example;
 
-public class Program
+public static class Program
 {
-    private static readonly string _trainDataPath = Path.Combine(Environment.CurrentDirectory, "data", "taxi-fare-train.csv");
-    private static readonly string _testDataPath = Path.Combine(Environment.CurrentDirectory, "data", "taxi-fare-test.csv");
+    private static readonly string _trainDataPath = Path.Combine(Environment.CurrentDirectory, "Data", "taxi-fare-train.csv");
+    private static readonly string _testDataPath = Path.Combine(Environment.CurrentDirectory, "Data", "taxi-fare-test.csv");
 
     public static void Main(string[] args)
     {
         // Начальный объект для работы с МЛ НЕТ
         MLContext mlContext = new MLContext(seed: 0);
 
-        var model = Train(mlContext, _trainDataPath);
+        // Подгрузка данных для тренировки модели
+        IDataView trainData = LoadData(mlContext, _trainDataPath);
 
-        Evaluate(mlContext, model);
+        // Тренировка модели
+        ITransformer model = Train(mlContext, trainData);
 
+        // Подгрузка данных для тестирования обученной модели
+        IDataView testData = LoadData(mlContext, _testDataPath);
+
+        // Проверка на точность обученной модели
+        Evaluate(mlContext, model, testData);
+
+        // Проверка обученной модели на единном элементе
         TestSinglePrediction(mlContext, model);
     }
 
-    private static ITransformer Train(MLContext mlContext, string dataPath)
+    private static IDataView LoadData(
+        MLContext mlContext,
+        string dataPath)
     {
         // Загрузка данных из файла в контекст
         IDataView dataView = mlContext.Data
             .LoadFromTextFile<TaxiTrip>(dataPath, hasHeader: true, separatorChar: ',');
 
+        return dataView;
+    }
+
+    private static ITransformer Train(
+        MLContext mlContext,
+        IDataView trainData)
+    {
         var pipeline = mlContext.Transforms
-            // Выставление параметра для предсказания
+
+            // Выставление параметра для предсказания с помощью - Label
             .CopyColumns(outputColumnName: "Label", inputColumnName: "FareAmount")
+
             // Преобразование данных для обучения модели
+            // Регрессионное Машинное обучение не умеет работать с строковыми типоми - string/char
             .Append(mlContext.Transforms.Categorical
                 .OneHotEncoding(outputColumnName: "VendorIdEncoded", inputColumnName: "VendorId"))
             .Append(mlContext.Transforms.Categorical
                 .OneHotEncoding(outputColumnName: "RateCodeEncoded", inputColumnName: "RateCode"))
             .Append(mlContext.Transforms.Categorical
                 .OneHotEncoding(outputColumnName: "PaymentTypeEncoded", inputColumnName: "PaymentType"))
-            // Выбор элементов используемых для предсказания
+
+            // Выставление элементов используемых для обучения и предсказания
             .Append(mlContext.Transforms
                 .Concatenate(
                     "Features",
@@ -47,24 +69,26 @@ public class Program
                     "PassengerCount",
                     "TripDistance",
                     "PaymentTypeEncoded"))
+
             // Выбор алгоритма для обучения
             .Append(mlContext.Regression.Trainers.FastTree());
 
         // Вызов метода для обучения
-        var model = pipeline.Fit(dataView);
+        var model = pipeline.Fit(trainData);
 
         return model;
     }
 
-    private static void Evaluate(MLContext mlContext, ITransformer model)
+    private static void Evaluate(
+        MLContext mlContext,
+        ITransformer model,
+        IDataView testData)
     {
-        // Подгрузка данных для теста обученной модели
-        IDataView dataView = mlContext.Data
-            .LoadFromTextFile<TaxiTrip>(_testDataPath, hasHeader: true, separatorChar: ',');
+        var predictions = model
+            .Transform(testData);
 
-        var predictions = model.Transform(dataView);
-
-        var metrics = mlContext.Regression.Evaluate(predictions, "Label", "Score");
+        var metrics = mlContext.Regression
+            .Evaluate(predictions, "Label", "Score");
 
         Console.WriteLine();
         Console.WriteLine($"*************************************************");
@@ -76,7 +100,7 @@ public class Program
 
     private static void TestSinglePrediction(MLContext mlContext, ITransformer model)
     {
-        // 
+        // Создаем элемент для предсказывания будущего значения
         var predictionFunction = mlContext.Model
             .CreatePredictionEngine<TaxiTrip, TaxiTripFarePrediction>(model);
 
@@ -91,7 +115,8 @@ public class Program
             FareAmount = 0 // To predict. Actual/Observed = 15.5
         };
 
-        var prediction = predictionFunction.Predict(taxiTripSample);
+        var prediction = predictionFunction
+            .Predict(taxiTripSample);
 
         Console.WriteLine($"**********************************************************************");
         Console.WriteLine($"Predicted fare: {prediction.FareAmount:0.####}, actual fare: 15.5");
