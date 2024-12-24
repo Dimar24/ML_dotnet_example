@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Runtime.InteropServices;
 
 namespace DeepMorphy.Example;
 
@@ -73,7 +72,7 @@ public static class Program
             GetCorrectFullName(morph, firstPeopleMorph, nomnTag));
 
         #region Helpers_Call_WriteLineLexeme
-        WriteLineLexeme(morph, secondPeople.Surname);
+        // WriteLineLexeme(morph, secondPeople.Surname);
         #endregion Helpers_Call_WriteLineLexeme
     }
 
