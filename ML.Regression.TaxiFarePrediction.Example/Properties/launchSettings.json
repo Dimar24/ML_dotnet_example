@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "ML.Regression.TaxiFarePrediction.Example": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}

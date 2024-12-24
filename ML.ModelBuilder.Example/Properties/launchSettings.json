@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "ML.ModelBuilder.Example": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}
